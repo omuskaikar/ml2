@@ -11,7 +11,7 @@ X = iris.data
 y = iris.target
 
 # One-hot encode the target variable
-encoder = OneHotEncoder(sparse = False)
+encoder = OneHotEncoder(sparse_output = False)
 y_onehot = encoder.fit_transform(y.reshape(-1, 1))
 
 # Split the dataset into training and testing sets
@@ -22,6 +22,7 @@ scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 
+# Neural Network Parameters
 # Neural Network Parameters
 input_size = X_train.shape[1]
 output_size = y_train.shape[1]
@@ -48,6 +49,7 @@ def mean_squared_error(y_true, y_pred):
 
 # Training the Neural Network
 mse_history = []
+accuracy_history = []
 
 for epoch in range(epochs):
     # Forward Propagation
@@ -60,6 +62,12 @@ for epoch in range(epochs):
     error = mean_squared_error(y_train, final_output)
     mse_history.append(error)
 
+    # Calculate accuracy
+    predicted_classes = np.argmax(final_output, axis=1)
+    true_classes = np.argmax(y_train, axis=1)
+    accuracy = np.mean(predicted_classes == true_classes)
+    accuracy_history.append(accuracy)
+    
     # Backpropagation
     output_error = y_train - final_output
     output_delta = output_error * sigmoid_derivative(final_output)
@@ -91,3 +99,8 @@ true_classes = np.argmax(y_test, axis=1)
 # Calculate accuracy
 accuracy = np.mean(predicted_classes == true_classes)
 print(f"Accuracy on Test Data: {accuracy}")
+plt.plot(accuracy_history)
+plt.title('Accuracy over Iterations')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.show()
