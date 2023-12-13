@@ -1,86 +1,93 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 from sklearn import datasets
-
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OneHotEncoder
 
-def perceptron(x, w, b):
-    yin = np.dot(x, w) + b
-    ynet = sigmoid(yin)
-    return ynet
-
-def sigmoid(yin):
-    return 1 / (1 + np.exp(-yin))
-
-def dw(x, y, w, b, alpha):
-    yhat = perceptron(x, w, b)
-    loss = y - yhat
-    dw = alpha * (y - yhat) * yhat * (1 - yhat) * x
-    return loss, dw
-
-def db(x, y, w, b, alpha):
-    yhat = perceptron(x, w, b)
-    db = alpha * (y - yhat) * yhat * (1 - yhat)
-    return db
-
-def accuracy(y_true, y_pred):
-    correct_predictions = np.sum(y_true == y_pred)
-    total_predictions = len(y_true)
-    return correct_predictions / total_predictions
-
-def stoch_with_accuracy(X, Y, w, b, epochs, alpha):
-    wlist = [w.copy()]
-    blist = [b]
-    losslist = []
-    accuracylist = []
-
-    for i in range(epochs):
-        total_loss = 0
-        predictions = []
-        for x, y in zip(X, Y):
-            loss, wup = dw(x, y, w, b, alpha)
-            w += wup
-            b += db(x, y, w, b, alpha)
-            total_loss += loss ** 2
-            predictions.append(np.round(perceptron(x, w, b)))  # Predicted class
-
-        avg_loss = total_loss / len(X)
-        acc = accuracy(Y, np.array(predictions))
-        losslist.append(avg_loss)
-        accuracylist.append(acc)
-        wlist.append(w.copy())
-        blist.append(b)
-
-    return w, b, wlist, blist, losslist, accuracylist
-
+# Load Iris dataset
 iris = datasets.load_iris()
+X = iris.data
+y = iris.target
 
-X=iris.data
-y=iris.target
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
-w=[0 for i in range(len(X[0]))]
-b=0
-w,b,wlist,blist,losslist,accuracylist=stoch_with_accuracy(X_train,y_train,w,b,100,0.001)
+# One-hot encode the target variable
+encoder = OneHotEncoder(sparse = False)
+y_onehot = encoder.fit_transform(y.reshape(-1, 1))
 
-import matplotlib.pyplot as plt
-plt.plot(wlist)
-plt.title('Change in Weight')
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y_onehot, test_size=0.2, random_state=42)
 
-import matplotlib.pyplot as plt
-plt.plot(blist)
-plt.title('Change in Bias')
+# Standardize the features
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
 
-import matplotlib.pyplot as plt
-plt.plot(losslist)
-plt.title('MSE')
+# Neural Network Parameters
+input_size = X_train.shape[1]
+output_size = y_train.shape[1]
+hidden_size = 8
+learning_rate = 0.01
+epochs = 1000
 
-import matplotlib.pyplot as plt
-plt.plot(accuracylist)
-plt.title('Accuracy')
+# Initialize random weights
+np.random.seed(42)
+weights_input_hidden = np.random.rand(input_size, hidden_size)
+weights_hidden_output = np.random.rand(hidden_size, output_size)
 
-predictions=[]
-for x in X_test:
-  predictions.append(np.round(perceptron(x, w, b)))
+# Sigmoid activation function
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
 
-from sklearn.metrics import classification_report
-print(classification_report(predictions,y_test))
+# Derivative of the sigmoid function
+def sigmoid_derivative(x):
+    return x * (1 - x)
+
+# Mean Squared Error Loss
+def mean_squared_error(y_true, y_pred):
+    return np.mean((y_true - y_pred)**2)
+
+# Training the Neural Network
+mse_history = []
+
+for epoch in range(epochs):
+    # Forward Propagation
+    hidden_input = np.dot(X_train, weights_input_hidden)
+    hidden_output = sigmoid(hidden_input)
+    final_input = np.dot(hidden_output, weights_hidden_output)
+    final_output = sigmoid(final_input)
+
+    # Calculate error
+    error = mean_squared_error(y_train, final_output)
+    mse_history.append(error)
+
+    # Backpropagation
+    output_error = y_train - final_output
+    output_delta = output_error * sigmoid_derivative(final_output)
+
+    hidden_layer_error = output_delta.dot(weights_hidden_output.T)
+    hidden_layer_delta = hidden_layer_error * sigmoid_derivative(hidden_output)
+
+    # Update weights
+    weights_hidden_output += hidden_output.T.dot(output_delta) * learning_rate
+    weights_input_hidden += X_train.T.dot(hidden_layer_delta) * learning_rate
+
+# Plot Mean Squared Error
+plt.plot(mse_history)
+plt.title('Mean Squared Error over Iterations')
+plt.xlabel('Epochs')
+plt.ylabel('Mean Squared Error')
+plt.show()
+
+# Testing the Neural Network
+hidden_input_test = np.dot(X_test, weights_input_hidden)
+hidden_output_test = sigmoid(hidden_input_test)
+final_input_test = np.dot(hidden_output_test, weights_hidden_output)
+final_output_test = sigmoid(final_input_test)
+
+# Convert probabilities to classes
+predicted_classes = np.argmax(final_output_test, axis=1)
+true_classes = np.argmax(y_test, axis=1)
+
+# Calculate accuracy
+accuracy = np.mean(predicted_classes == true_classes)
+print(f"Accuracy on Test Data: {accuracy}")
